@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#F6F4EE" />
+    <title>Whatloom — Brand studio</title>
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+    <style>
+      @font-face{font-family:DM Sans;src:url('./dm-sans-variable.ttf') format('truetype');font-weight:100 1000;font-display:swap}
+      @font-face{font-family:Instrument Serif;src:url('./instrument-serif.ttf') format('truetype');font-display:swap}
+      @font-face{font-family:Instrument Serif;src:url('./instrument-serif-italic.ttf') format('truetype');font-style:italic;font-display:swap}
+      :root{--paper:#f6f4ee;--ink:#242720;--lime:#d7f06f;--quiet:#7b7f73;--line:#dcddd3}
+      *{box-sizing:border-box}body{margin:0;color:var(--ink);background:var(--paper);font:15px/1.55 'DM Sans',system-ui,sans-serif}a{color:inherit;text-underline-offset:5px}a:focus-visible{outline:3px solid var(--ink);outline-offset:5px}img{display:block;max-width:100%}.wrap{max-width:1264px;margin:auto;padding:0 48px}.top{height:112px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}.brand{width:184px}.back{font-size:12px;text-decoration:none}.back span{padding-left:13px}.eyebrow{font-size:10px;letter-spacing:1.9px;font-weight:600;text-transform:uppercase}.hero{display:grid;grid-template-columns:1fr 290px;gap:70px;padding:86px 0 65px;align-items:end}h1{font:400 clamp(55px,6.6vw,88px)/.98 'Instrument Serif',Georgia,serif;letter-spacing:-1.8px;margin:21px 0 0;max-width:730px}h1 i{font-weight:400}.hero p{font-size:14px;color:#666b5e;margin:0 0 5px;line-height:1.7}.poster{width:100%;height:auto;border:1px solid var(--line)}section{margin-top:74px}.section-top{display:flex;align-items:baseline;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:15px;margin-bottom:24px}h2{font-size:12px;font-weight:550;margin:0}h2 span{font-size:10px;color:var(--quiet);margin-right:19px}.section-note{font-size:11px;color:var(--quiet);margin:0}.identity{display:grid;grid-template-columns:2fr 1fr 1fr;gap:16px}.tile{min-height:220px;display:flex;justify-content:center;align-items:center;position:relative;border:1px solid var(--line)}.tile .logo{width:67%}.tile .symbol{width:105px}.tile .label{position:absolute;left:20px;bottom:15px;font-size:9px;letter-spacing:1.2px;text-transform:uppercase;color:var(--quiet)}.tile.ink{background:var(--ink);border-color:var(--ink)}.tile.ink .label{color:#b6bcae}.tile.lime{background:var(--lime);border-color:var(--lime)}.tile.lime .label{color:#5c6743}.colors{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}.swatch{height:146px;border:1px solid var(--line);padding:18px;display:flex;align-items:end}.swatch b{font-size:11px;font-weight:500}.color-info{display:flex;justify-content:space-between;padding-top:10px;font-size:10px}.color-info span{color:var(--quiet)}.type-grid{display:grid;grid-template-columns:1.12fr 1fr;gap:40px}.type-card{padding:24px 0 0}.serif-sample{font:400 clamp(39px,4.7vw,63px)/1.05 'Instrument Serif',Georgia,serif;letter-spacing:-.6px;margin:20px 0 25px}.sans-sample{font-size:clamp(24px,3vw,38px);line-height:1.15;letter-spacing:-1.2px;margin:23px 0 27px;font-weight:500}.type-detail{max-width:400px;color:#666b5e;font-size:12px}.voice{display:grid;grid-template-columns:1fr 1fr;gap:70px;background:#efeee6;padding:42px}.voice h3{font:400 42px/1.05 'Instrument Serif',Georgia,serif;margin:0 0 22px;letter-spacing:-.5px}.voice p{font-size:12px;color:#666b5e;max-width:360px;margin:0}.voice ul{list-style:none;padding:0;margin:0}.voice li{padding:12px 0;border-bottom:1px solid #d4d7c9;font-size:13px}.voice li:first-child{padding-top:0}.voice li:last-child{border:0;padding-bottom:0}.voice small{display:block;text-transform:uppercase;font-size:8px;letter-spacing:1.2px;color:var(--quiet);margin-bottom:5px}.downloads{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.download{display:flex;align-items:center;justify-content:space-between;text-decoration:none;padding:18px;border:1px solid var(--line);font-size:11px;transition:background .15s}.download:hover{background:var(--lime)}.download span{font-size:16px}.footer{border-top:1px solid var(--line);margin-top:74px;padding:25px 0 34px;display:flex;justify-content:space-between;gap:24px;font-size:10px;color:var(--quiet)}.footer p{margin:0;max-width:680px}.app-icon{height:140px;width:140px}.app-row{display:grid;grid-template-columns:200px 1fr;align-items:center;gap:45px;padding:33px 0}.app-row h3{font:400 36px 'Instrument Serif',Georgia,serif;margin:0 0 10px}.app-row p{font-size:12px;color:#666b5e;max-width:480px;margin:0}.app-favicons{display:flex;align-items:center;gap:26px;margin-top:18px}.app-favicons img{width:32px;height:32px}.app-favicons .small{width:20px;height:20px}.app-favicons .tiny{width:16px;height:16px}
+      @media(max-width:800px){.wrap{padding:0 24px}.top{height:84px}.brand{width:155px}.hero{grid-template-columns:1fr;gap:30px;padding:58px 0 40px}.hero p{max-width:470px}h1{letter-spacing:-1px}.identity{grid-template-columns:1fr 1fr}.identity .tile:first-child{grid-column:1/-1}.tile{min-height:180px}.colors{grid-template-columns:1fr 1fr}.type-grid,.voice{grid-template-columns:1fr;gap:32px}.voice{padding:28px}.downloads{grid-template-columns:1fr 1fr}.section-note{display:none}section{margin-top:52px}.app-row{grid-template-columns:120px 1fr;gap:20px}.app-icon{width:110px;height:110px}.app-row h3{font-size:29px}.footer{display:block}.footer p+span{display:block;margin-top:16px}}
+      @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <nav class="top" aria-label="Brand navigation">
+        <img class="brand" src="./logo.svg" alt="Whatloom" />
+        <a class="back" href="/">Back to the studio <span aria-hidden="true">↗</span></a>
+      </nav>
+      <header class="hero">
+        <div><div class="eyebrow">The Whatloom identity · v0.1</div><h1>A little room for<br/><i>very big possibilities.</i></h1></div>
+        <p>An invention studio for people who see something that could be better—and feel the pull to make it real.</p>
+      </header>
+      <img class="poster" src="./social-card.svg" alt="Whatloom. Make room for what could be. Explore bold possibilities. Find the evidence. Make the first proof." width="1200" height="630" />
+      <section aria-labelledby="identity-title">
+        <div class="section-top"><h2 id="identity-title"><span>01</span>Open by design.</h2><p class="section-note">A connected w. Two open paths. Room to begin.</p></div>
+        <div class="identity">
+          <div class="tile"><img class="logo" src="./logo.svg" alt="Primary Whatloom logo"/><span class="label">Primary signature</span></div>
+          <div class="tile ink"><img class="symbol" src="./mark-chartreuse.svg" alt="Chartreuse Whatloom symbol on ink"/><span class="label">The open w</span></div>
+          <div class="tile lime"><img class="symbol" src="./mark-ink.svg" alt="Ink Whatloom symbol on chartreuse"/><span class="label">Possibility, in form</span></div>
+        </div>
+        <div class="app-row"><img class="app-icon" src="./app-icon.svg" alt="Whatloom app icon"/><div><h3>A familiar face on your desktop.</h3><p>Quiet enough to work beside. Distinct enough to find again. The same open w stays clear from the Dock to a browser tab.</p><div class="app-favicons" aria-label="Small icon sizes"><img src="../favicon.svg" alt="32-pixel favicon"/><img class="small" src="../favicon.svg" alt="20-pixel favicon"/><img class="tiny" src="../favicon.svg" alt="16-pixel favicon"/></div></div></div>
+      </section>
+      <section aria-labelledby="color-title">
+        <div class="section-top"><h2 id="color-title"><span>02</span>A warm place to think.</h2><p class="section-note">Paper and ink, with a small electric interruption.</p></div>
+        <div class="colors">
+          <div><div class="swatch" style="background:#f6f4ee"><b>Paper</b></div><div class="color-info"><b>#F6F4EE</b><span>The thinking surface</span></div></div>
+          <div><div class="swatch" style="background:#242720;color:#f6f4ee;border-color:#242720"><b>Ink</b></div><div class="color-info"><b>#242720</b><span>Clarity and structure</span></div></div>
+          <div><div class="swatch" style="background:#d7f06f;border-color:#d7f06f"><b>Possibility</b></div><div class="color-info"><b>#D7F06F</b><span>What deserves attention</span></div></div>
+          <div><div class="swatch" style="background:#7b7f73;color:#f6f4ee;border-color:#7b7f73"><b>Quiet</b></div><div class="color-info"><b>#7B7F73</b><span>Secondary information</span></div></div>
+        </div>
+      </section>
+      <section aria-labelledby="type-title">
+        <div class="section-top"><h2 id="type-title"><span>03</span>Imagination, with a steady hand.</h2><p class="section-note">Instrument Serif + DM Sans. Included for offline use.</p></div>
+        <div class="type-grid">
+          <div class="type-card"><div class="eyebrow">Instrument Serif</div><p class="serif-sample">The future needs<br/><i>a first draft.</i></p><p class="type-detail">For invitations, possibility, and the occasional surprising thought. Use generous scale and ordinary sentence case.</p></div>
+          <div class="type-card"><div class="eyebrow">DM Sans</div><p class="sans-sample">Clear questions.<br/>Useful evidence.<br/>A place to begin.</p><p class="type-detail">For the work: navigation, notes, sources, labels, and decisions. Direct, legible, and comfortably human.</p></div>
+        </div>
+      </section>
+      <section aria-labelledby="voice-title">
+        <div class="section-top"><h2 id="voice-title"><span>04</span>Curiosity with conviction.</h2><p class="section-note">Invite ambition. Keep the next step concrete.</p></div>
+        <div class="voice">
+          <div><h3>“What if?”<br/><i>Then, “How?”</i></h3><p>We take a creator’s ambition seriously. We ask useful questions, show our evidence, and keep possibilities open long enough to discover something worth pursuing.</p></div>
+          <ul>
+            <li><small>The invitation</small>Make room for what could be.</li>
+            <li><small>The starting point</small>What do you wish existed?</li>
+            <li><small>The inquiry</small>What would have to become true?</li>
+            <li><small>The next step</small>Find your first proof.</li>
+          </ul>
+        </div>
+      </section>
+      <section aria-labelledby="download-title">
+        <div class="section-top"><h2 id="download-title"><span>05</span>Take it somewhere.</h2><p class="section-note">Editable vector assets. No external images or font requests.</p></div>
+        <div class="downloads">
+          <a class="download" href="./logo.svg" download>Primary logo · SVG <span aria-hidden="true">↓</span></a>
+          <a class="download" href="./wordmark.svg" download>Outlined wordmark · SVG <span aria-hidden="true">↓</span></a>
+          <a class="download" href="./mark-ink.svg" download>Symbol · SVG <span aria-hidden="true">↓</span></a>
+          <a class="download" href="./app-icon.svg" download>App icon · SVG <span aria-hidden="true">↓</span></a>
+          <a class="download" href="./social-card.svg" download>Launch card · SVG <span aria-hidden="true">↓</span></a>
+          <a class="download" href="./social-card.png" download>Launch card · PNG <span aria-hidden="true">↓</span></a>
+          <a class="download" href="./app-icon.png" download>App icon · PNG <span aria-hidden="true">↓</span></a>
+          <a class="download" href="./app-icon.icns" download>Mac icon · ICNS <span aria-hidden="true">↓</span></a>
+          <a class="download" href="./BRAND.md" download>Brand guide · Markdown <span aria-hidden="true">↓</span></a>
+        </div>
+      </section>
+      <footer class="footer"><p>Whatloom is a working product name. Initial web screening found no obvious exact-name software result; domain availability and trademark clearance have not been established.</p><span>Made for what comes next. ↗</span></footer>
+    </main>
+  </body>
+</html>
