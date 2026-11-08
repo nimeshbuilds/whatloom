@@ -4,84 +4,89 @@
 
 **[Try the browser studio](https://nimeshbuilds.github.io/whatloom/)** · **[Download the Mac app](https://github.com/nimeshbuilds/whatloom/releases/latest)**
 
-A local invention studio for turning a future worth creating into different mechanisms, explicit assumptions, an emerging ecosystem, and a first practical proof.
+A local founder workspace for finding an idea, understanding the alternatives, shaping a product and brand, and handing an approved direction to your AI builder.
 
-This is a working prototype. It helps organize invention and research; it cannot predict the size or success of an industry.
+Whatloom 0.2 pairs a conversation with editable documents. It is a working prototype: ideas and AI findings need judgment and real-world testing; the app cannot predict commercial success.
+
+## From a curiosity to a first version
+
+1. **Discover.** Start with your interests, a frustration, an existing idea, or a product you want to improve. Explore different directions and choose the one you want to pursue.
+2. **Research.** Compare competitors, substitutes, and existing workarounds. Keep primary source links and the questions they leave unanswered.
+3. **Define the product.** Write what the product does, who it serves, why it matters, its user journeys, success criteria, and first-version boundaries. The builder chooses the technical implementation later.
+4. **Name and brand.** Compare names and choose a direction, tagline, palette, typography, and logo concept. Export editable SVG starting assets and CSS/JSON brand tokens. The SVG kit uses a local monogram/wordmark template; it is a starting point for design, not a trademark or name-availability check.
+5. **Review.** Inspect the complete brief, research, brand, and open questions. AI document suggestions remain drafts until you apply them. Explicitly approve the current revision; material edits require another review.
+6. **Build locally.** Choose a connected Codex or Claude model and start a build. Whatloom creates a new folder under `Documents/Whatloom Builds` containing the approved product brief, research, brand assets, and source project. The official coding agent can implement there using its own permissions. You can follow its output and stop its run.
+
+You can use the guided notebook without an AI account. It records your conversation and offers stage prompts; it does not simulate AI answers or current market research. Edit the documents yourself, export a backup, or connect an AI partner when ready.
+
+The earlier possibility-map workbench remains available at **Earlier workbench**. Its [ten guided scenarios](https://nimeshbuilds.github.io/whatloom/#scenarios) cover mechanisms, assumptions, evidence, experiments, and sharing. Each scenario opens an editable practice copy with a resumable checklist. Practice content is illustrative; completing a checklist does not validate an idea or record a real experiment.
 
 ## Mac app
 
-Download the Apple Silicon ZIP or DMG from [Releases](https://github.com/nimeshbuilds/whatloom/releases/latest). Move **Whatloom.app** into Applications, then open it. The app includes its Node.js runtime and local server; users do not need to install Node.js or npm. The native window hosts the full local studio, including the installed-agent connection.
+Download the Apple Silicon ZIP or DMG from [Releases](https://github.com/nimeshbuilds/whatloom/releases/latest). Move **Whatloom.app** into Applications, then open it. The app includes its Node.js runtime and local server; you do not need Node.js or npm to use it.
 
-This first release targets **Apple Silicon Macs running macOS 13 or newer**. It is ad-hoc signed and **not notarized with an Apple Developer ID**. macOS may interrupt opening a downloaded preview build. No Developer ID signing identity is bundled or assumed. Intel Macs can use the source launcher below.
+The native app targets **Apple Silicon Macs running macOS 13 or newer**. It is ad-hoc signed and **not notarized with an Apple Developer ID**. macOS may interrupt opening a downloaded preview build. No signing identity is bundled or assumed. Intel Macs can use the source launcher below.
 
-Your official Codex or Claude Code CLI still needs to be installed and signed in separately for AI features. The guided studio, local editing, and exports work without an AI connection. Native-app storage is separate from your ordinary browser storage; use a portable JSON backup to move an exploration between them.
+Codex and Claude Code are optional, separately installed official CLIs. They are not bundled with Whatloom. The notebook, document editing, brand exports, and backups work without them. The native app's saved work is separate from an ordinary browser profile; use JSON export/import to move a project between them.
+
+## Connect your AI account in the app
+
+Open **Connect AI / Settings**, choose Codex or Claude, and select **Connect**. Whatloom starts that provider's official browser sign-in. Complete the provider's page and return to the app; its connection status updates automatically. A pending sign-in can be cancelled or restarted if it expires. You do not need to enter a login command or paste an OAuth token into Whatloom.
+
+Whatloom discovers official CLIs on PATH and in common installation directories. If a provider is missing, install it from [OpenAI's Codex documentation](https://learn.chatgpt.com/docs/cli) or [Claude Code's setup documentation](https://code.claude.com/docs/en/setup), then refresh the connection. Whatloom does not automatically install a provider or change your existing login on page load.
+
+After connection, choose a model in Settings or use the provider CLI's default. Codex tasks retain your sign-in and run without loading personal Codex configuration, so the default follows the installed CLI rather than a model override in your settings. Explicit model selections are passed unchanged; Whatloom does not silently switch models when access fails. Codex models come from your installed app-server's live catalog. Claude choices are documented aliases: account default, Sonnet, Opus, and Haiku. A catalog or alias is not proof of account entitlement; the provider checks access when a task runs. Your selection follows partner conversations and build handoffs. The earlier workbench uses the provider's default.
+
+Credentials stay with the official CLI. Whatloom reads the CLI's connection status, exposes only allowlisted provider authorization URLs during sign-in, and never copies its token cache. Eligible subscription usage remains subject to provider access, terms, and limits. A CLI configured for API billing may bill usage that way; a chat subscription does not become unlimited API access.
+
+See the official [Codex authentication](https://learn.chatgpt.com/docs/auth), [Codex app-server](https://learn.chatgpt.com/docs/app-server), [Claude Code CLI](https://code.claude.com/docs/en/cli-reference), and [Claude model configuration](https://code.claude.com/docs/en/model-config) documentation.
 
 ## Browser studio on GitHub Pages
 
-[The hosted studio](https://nimeshbuilds.github.io/whatloom/) supports guided explorations, examples, assumptions, evidence entry, experiment records, PNG cards, and backup import/export. It saves to that browser profile. GitHub Pages does not run the local AI server: the hosted interface offers the Mac download for Codex/Claude features and does not transmit prompts to a nonexistent API.
+[The hosted studio](https://nimeshbuilds.github.io/whatloom/) supports the guided founder notebook, editable documents, manual source records, name/brand choices, local SVG/token exports, project backups, and the earlier workbench with its ten walkthroughs. It saves in that browser profile.
 
-Start with **[Guided scenarios](https://nimeshbuilds.github.io/whatloom/#scenarios)** to try ten different uses of the studio. Each opens its own editable practice exploration, with instructions, an expected outcome for each step, and a checklist you can resume on this browser. Practice materials are illustrative; completing a checklist does not validate an idea or record a real experiment. All ten work without an AI account.
+GitHub Pages does not run a local AI server. Provider sign-in, model discovery, AI conversation/research, and coding-agent execution require the Mac app or a local source instance. The hosted studio offers the Mac download instead of sending prompts to an unavailable API. Export a founder project backup and import it in the local app to continue; the imported copy must be reviewed before building.
+
+## Research and building: what a result means
+
+AI ideas and proposed differentiators are hypotheses. Research is a bounded first pass, not a novelty, demand, or market-size determination. Vendor statements remain vendor claims. Review sources and their relevance yourself.
+
+AI research uses the chosen CLI's native web tools. Retained citations must match an exact public URL recorded in a completed native page operation. Founder research also connects each competitor to its returned sources. This verifies the observed tool event, not the accuracy of a page, the success of every retrieval, or the model's interpretation. If usable page events are unavailable, the app reports the limitation instead of inventing evidence. You can record primary sources you reviewed manually; those are distinguished from agent-linked sources.
+
+The build control requires a complete review and approval of the current revision. It starts implementation in a fresh local folder, preserving the handoff files and brand assets. It does not publish or deploy the result. The builder may stop if account limits or CLI permissions prevent a required action. A completed agent run means the process finished successfully; review its files, actual test results, run instructions, and unresolved requirements before relying on the result.
+
+Earlier workbench live checks passed with Codex CLI 0.154.0 for structured generation and native research, including a primary URL matched to its native event. Both installed providers' read-only connection checks and the Codex model catalog have also been checked locally. Authentication lifecycle, model selection, and handoff tests use fixtures; they do not change a user's login or claim that a complete generated product has been validated. Claude live generation and research have not been exercised in that validation.
+
+## Data and execution
+
+Projects, conversations, editable documents, drafts, model preferences, and saved build summaries are stored in **localStorage**, without a cloud database or account sync. Tabs on the same origin receive saved project changes; simultaneous edits can conflict, so use one active editing tab. Clearing browser storage, switching profiles, or changing the origin/port can make work unavailable. Export projects you want to keep.
+
+Build folders are ordinary local files and remain after the app closes. Active login/build processes and their status live in the local server's memory; restarting the server does not restore an active job. Quitting stops processes owned by that server. An app reusing another healthy Whatloom instance does not stop that other instance when its own window closes.
+
+The server listens on **127.0.0.1**. Mutations require same-origin JSON requests. Partner conversations and workbench generation/research run one agent task at a time in a fresh temporary directory with bounded input, runtime, and output. Structured drafts are validated before being offered to the creator. Shell, file, connector, and delegation tools are disabled for those thinking sessions; research enables native web search/page fetch. Build execution uses a separate approved workspace and the coding CLI's permissions, without bypass flags.
+
+**Local storage does not mean local inference.** Starting an AI conversation sends the project's context, relevant documents, research, and recent conversation to the selected provider through its CLI. Workbench generation/research sends its submitted brief or assumptions. A build sends the approved handoff and allows the agent to read files in its build workspace. Research queries and page requests go through the provider's native web tools. Provider privacy and retention policies apply. The CLI can maintain its own authentication, state, and diagnostic logs.
 
 ## Run from source on a Mac
 
-Double-click **Start Whatloom.command**. The launcher finds Node.js, installs this project's dependencies if needed, starts the app at **http://127.0.0.1:4310**, and opens your browser. Keep its Terminal window open while using Whatloom; press **Control-C** there to stop it.
+Double-click **Start Whatloom.command**. The launcher finds Node.js, installs this project's dependencies if needed, starts **http://127.0.0.1:4310**, and opens your browser. Keep its window open; press **Control-C** there to stop the source server.
 
-Requirements: Node.js **22.13 or newer**, npm, and a modern browser. If macOS does not open the command file, open Terminal in this folder and run:
+Requirements: Node.js **22.13 or newer**, npm, and a modern browser. You can also run:
 
 ```sh
 node scripts/launch-local.mjs
 ```
 
-The launcher reuses an already running Whatloom instance. It will not stop another app occupying port 4310. If a production build is present it uses that build; otherwise it runs the development server.
-
-## Use your existing AI account
-
-The app discovers the **official Codex CLI** and **official Claude Code CLI** on your PATH and in common local installation directories. Install and sign in to the agent you want to use through its own official interface:
-
-```sh
-codex login
-claude auth login
-```
-
-Install only the provider you intend to use. Detection checks installation and version; it does not inspect stored credentials or confirm plan eligibility. Choosing an installed agent and explicitly starting an exploration or research pass invokes that CLI. Whatloom never copies OAuth tokens or asks you to paste credentials into the app. It does not automatically install an AI CLI, sign you in, or run inference on page load.
-
-The CLI uses its own authentication and account configuration. Eligible subscription usage remains subject to the provider's terms, access, and rate limits. If the CLI is configured for API billing, its usage may be billed that way. Whatloom does not turn an ordinary chat subscription into unlimited API access.
-
-See [Codex non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode), [Codex configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference), [Claude Code CLI reference](https://code.claude.com/docs/en/cli-reference), and [Claude Code programmatic use](https://code.claude.com/docs/en/headless).
-
-## What works
-
-- Explore an example or create your own project in the offline guided framework.
-- Change a condition and create a separate exploration, keeping the original work intact. With an AI selected, new paths are developed under that condition; guided mode records it as a framework to work through.
-- Generate three different mechanism paths through a local agent connection, with linked untested assumptions, potential ecosystem opportunities, and planned experiments.
-- Research competitors, substitutes, and contradictory findings through the chosen CLI's native web tools when those tools are available on your account.
-- Keep source links, assumptions, and experiment outcomes alongside the invention rather than losing them in a chat transcript.
-- Save work in this browser and export a shareable PNG future card, a Markdown exploration brief, or a portable JSON backup. Import a backup to continue in another browser or on another device.
-- Inspect the logo, app icon, social launch graphics, bundled fonts, and brand guide at `/brand/brand-board.html`.
-
-AI-generated mechanisms are hypotheses. Research is a bounded first pass and needs human review. A vendor's statement is a vendor's claim, and a competitor's existence does not establish customer demand.
-
-The research API returns at most six sources. It retains citations only when their exact URL matches a completed native page operation in the CLI's event stream and they link to one of the submitted assumptions. This includes Codex's URL operations, which some versions label as `other`. It checks that the agent invoked a native page operation for the cited URL; it does not independently verify the page's contents, a successful retrieval, or the interpretation. Sources and their relevance still need human review. If the CLI provides no verifiable page-URL events, research returns an explicit error instead of fabricated evidence. Add sources manually when native research is unavailable.
-
-Live integration checks passed with **Codex CLI 0.154.0** for both structured exploration and native web research, including a returned primary source matched to its completed page-URL event. **Claude Code 2.1.283** installation detection and mocked structured/event parsing are verified; its live generation and research have not been exercised in this prototype's validation.
-
-## Data and execution
-
-Projects are stored in **localStorage in this browser**, without a cloud database or account sync. Changes are synchronized between tabs on the same origin; simultaneous edits can still conflict, so use one active editing tab. Clearing browser storage, using a different browser/profile, or changing the origin/port can make saved projects unavailable. Export work you want to keep.
-
-The app server listens on **127.0.0.1**. Generation and research require a same-origin JSON request from the local page. One agent task runs at a time. Inputs, runtime, and captured output are capped. The app starts each CLI in a fresh temporary directory, supplies the brief through stdin, validates structured output, and removes the temporary schema afterward. It does not log prompts, provider responses, or credentials.
-
-Exploration disables shell execution, web browsing, connector integrations, and agent delegation. Research enables native web search/page fetch while shell, file, connector, and delegation tools remain disabled. Claude uses explicit web-only tool selection; Codex uses read-only sandboxing plus disabled execution/integration features. User customization is excluded where supported; provider or administrator policies still apply. These CLI options require reasonably current installations and may need updating when providers change their CLIs.
-
-**Local storage does not mean local inference.** When you start an agent, your vision, domain, context, constraints, or selected assumptions are sent to the chosen model provider through its CLI. Research sends search queries and requested URLs through that provider's native web tools. The provider's privacy and retention policies apply. Other project material is not automatically attached. The CLI may maintain its own authentication, application state, and diagnostic logs even though Whatloom requests ephemeral/non-persistent sessions.
+The launcher reuses an already running Whatloom instance and leaves another app on port 4310 alone. It uses a production build when present, otherwise the development server.
 
 ## Development
 
 ```sh
 npm install
 npm run dev
-npm run build
+npm run typecheck
 npm test
+npm run build
 ```
 
 Additional builds:
@@ -91,17 +96,17 @@ npm run build:pages       # static hosted studio → outputs/pages
 npm run build:mac         # native Apple Silicon .app, ZIP, DMG and checksums
 ```
 
-The Pages build runs in an isolated staging directory and does not remove local API routes. Set `WHATLOOM_BASE_PATH` and `NEXT_PUBLIC_REPOSITORY_URL` when deploying under another repository.
+The Pages build stages a separate copy and omits server routes. Set `WHATLOOM_BASE_PATH` and `NEXT_PUBLIC_REPOSITORY_URL` for another repository. The Mac build needs macOS and Xcode Command Line Tools; it verifies the official Node 22 runtime download and includes its matching license and dependency notices. See [desktop build details](desktop/README.md).
 
-The Mac build needs Xcode Command Line Tools and macOS. It downloads an official Node 22 runtime and checks its release SHA-256 before bundling it with the standalone server. The complete matching Node license and dependency notices are included. Build products and signing material are excluded from Git. Release SHA-256 files accompany the downloadable ZIP/DMG.
+Pushing `main` publishes the hosted studio. A matching `v*` version tag runs the Apple Silicon release workflow. Release archives include SHA-256 checksums; build products and signing material are excluded from Git.
 
-Pushing `main` publishes the hosted studio through the Pages workflow. Pushing a `v*` tag runs the Apple Silicon Mac release workflow.
+Tests use fixtures and small local Node processes, without model calls or provider usage. The local APIs require Node.js and are excluded from GitHub Pages:
 
-The APIs require the Node.js runtime because they invoke local executables. They are omitted from the GitHub Pages export and are not exposed on a public network. Tests use fixtures and small local Node processes; they do not call a model or consume provider usage.
-
-API endpoints:
-
-- `GET /api/agents`: installed agent names, optional versions, and installation status.
-- `POST /api/explore`: structured invention generation for `codex` or `claude`.
-- `POST /api/research`: native web research tied to submitted assumption IDs.
+- `GET /api/agents`: installed CLI names, versions, and availability.
+- `GET /api/agents/auth?provider=codex|claude`: sanitized connection and pending-login status.
+- `POST /api/agents/auth`: explicitly start or cancel a provider browser sign-in.
+- `GET /api/agents/models?provider=codex|claude`: live Codex catalog or documented Claude aliases.
+- `POST /api/partner`: stage-aware conversation and proposed document drafts.
+- `POST /api/build`, `GET /api/build?id=…`, `DELETE /api/build?id=…`: start, follow, or stop an approved local build.
+- `POST /api/explore`, `POST /api/research`: earlier workbench generation and native research.
 - `GET /api/health`: local launcher health check.

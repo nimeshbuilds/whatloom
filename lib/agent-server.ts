@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 import { constants } from 'node:fs';
 import { access, mkdtemp, rm, stat, writeFile } from 'node:fs/promises';
 import { isIP } from 'node:net';
@@ -16,7 +16,9 @@ export interface AgentStatus {
   detail: string;
 }
 
+const agentErrorBrand = Symbol.for('whatloom.agent-error');
 export class AgentError extends Error {
+  readonly [agentErrorBrand] = true;
   code: string;
   status: number;
   constructor(code: string, message: string, status = 502) {
@@ -27,10 +29,24 @@ export class AgentError extends Error {
   }
 }
 
+export function isAgentError(error: unknown): error is AgentError {
+  // Next route bundles and hot reloads can have separate class identities.
+  // A process-wide symbol preserves our own safe errors across those boundaries.
+  return error instanceof Error && (error as AgentError)[agentErrorBrand] === true &&
+    typeof (error as AgentError).code === 'string' && Number.isInteger((error as AgentError).status) &&
+    (error as AgentError).status >= 400 && (error as AgentError).status <= 599;
+}
+
 const boundedText = (max: number) => z.string().trim().min(1).max(max);
 const identifier = z.string().regex(/^[a-zA-Z0-9_-]{1,64}$/);
+export const modelSchema = z.string().trim().min(1).max(120).regex(/^[a-zA-Z0-9][a-zA-Z0-9._:/\[\]-]*$/);
+export function normalizeSelectedModel(_provider: AgentProvider, model?: string): string | undefined {
+  if (!model || model === 'default') return undefined;
+  return modelSchema.parse(model);
+}
 const briefFields = {
   provider: z.enum(['codex', 'claude']),
+  model: modelSchema.optional(),
   vision: z.string().trim().min(12).max(4000),
   context: z.string().trim().max(10000),
   domain: z.string().trim().max(120),
@@ -253,7 +269,7 @@ export async function readRequestJson(request: Request, maxBytes = 28_000): Prom
     }
     return JSON.parse(Buffer.concat(chunks).toString('utf8'));
   } catch (error) {
-    if (error instanceof AgentError) throw error;
+    if (isAgentError(error)) throw error;
     throw new AgentError('INVALID_INPUT', 'The request could not be read. Try again.', 400);
   } finally {
     reader.releaseLock();
@@ -264,7 +280,7 @@ export function apiError(error: unknown) {
   if (error instanceof z.ZodError) {
     return Response.json({ error: 'Check your vision and context lengths, then try again.', code: 'INVALID_INPUT' }, { status: 400 });
   }
-  if (error instanceof AgentError) {
+  if (isAgentError(error)) {
     return Response.json({ error: error.message, code: error.code }, { status: error.status, headers: { 'Cache-Control': 'no-store' } });
   }
   return Response.json({ error: 'The agent could not finish this request. Try again.', code: 'AGENT_FAILED' }, { status: 502 });
@@ -310,8 +326,17 @@ function installAgentShutdownHooks() {
   process.on('exit', stopOwnedAgentProcesses);
 }
 
+export function trackOwnedAgentProcess(child: ChildProcess) {
+  installAgentShutdownHooks();
+  if (child.pid) activeAgentPids.add(child.pid);
+  const remove = () => { if (child.pid) activeAgentPids.delete(child.pid); };
+  child.once('close', remove);
+  child.once('error', remove);
+}
+
 export function runBoundedProcess(executable: string, args: string[], options: {
   cwd: string; input?: string; timeoutMs?: number; maxOutputBytes?: number; signal?: AbortSignal;
+  onOutput?: (text: string) => void;
 }): Promise<ProcessResult> {
   return new Promise((resolve, reject) => {
     if (options.signal?.aborted) return reject(new AgentError('CANCELLED', 'The request was cancelled.', 499));
@@ -319,8 +344,7 @@ export function runBoundedProcess(executable: string, args: string[], options: {
       cwd: options.cwd, shell: false, windowsHide: true, detached: process.platform !== 'win32',
       stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, NO_COLOR: '1' },
     });
-    installAgentShutdownHooks();
-    if (child.pid) activeAgentPids.add(child.pid);
+    trackOwnedAgentProcess(child);
     let failure: AgentError | undefined;
     let outputSize = 0;
     let settled = false;
@@ -361,12 +385,15 @@ export function runBoundedProcess(executable: string, args: string[], options: {
       outputSize += chunk.byteLength;
       if (outputSize > (options.maxOutputBytes ?? 1_000_000)) {
         stop(new AgentError('OUTPUT_TOO_LARGE', 'The agent returned too much content. Try a more focused brief.'));
-      } else destination.push(chunk);
+      } else {
+        destination.push(chunk);
+        options.onOutput?.(chunk.toString('utf8'));
+      }
     };
     child.stdout.on('data', (chunk: Buffer) => collect(stdout, chunk));
     child.stderr.on('data', (chunk: Buffer) => collect(stderr, chunk));
     child.stdin.on('error', () => { /* Early CLI failures can close stdin before the brief is sent. */ });
-    child.on('error', () => finish(new AgentError('AGENT_START_FAILED', 'The agent could not start. Check its installation in Terminal.')));
+    child.on('error', () => finish(new AgentError('AGENT_START_FAILED', 'The agent could not start. Check its installation, then reconnect in Settings.')));
     child.on('close', (exitCode) => finish(failure, { stdout: Buffer.concat(stdout).toString('utf8'), stderr: Buffer.concat(stderr).toString('utf8'), exitCode }));
     child.stdin.end(options.input ?? '');
   });
@@ -376,20 +403,22 @@ export async function getAgentStatuses(): Promise<AgentStatus[]> {
   return Promise.all((['codex', 'claude'] as const).map(async (id) => {
     const name = id === 'codex' ? 'Codex' : 'Claude Code';
     const executable = await discoverExecutable(id);
-    if (!executable) return { id, name, available: false, detail: `Install ${name}, then sign in using its official CLI.` };
+    if (!executable) return { id, name, available: false, detail: `Install the official ${name} CLI, then return to Settings to connect.` };
     let version: string | undefined;
     try {
       const result = await runBoundedProcess(executable, ['--version'], { cwd: tmpdir(), timeoutMs: 5000, maxOutputBytes: 8000 });
       const line = result.stdout.trim().split('\n')[0];
       if (result.exitCode === 0 && /^[a-zA-Z0-9 .()_@/+:-]{1,100}$/.test(line)) version = line;
     } catch { /* Installation detection does not make an inference or inspect credentials. */ }
-    return { id, name, available: true, ...(version ? { version } : {}), detail: 'Installed. Sign-in and account access are checked when you run an agent.' };
+    return { id, name, available: true, ...(version ? { version } : {}), detail: 'Installed. Connect or check your account in Settings.' };
   }));
 }
 
-export function buildAgentArgs(provider: AgentProvider, schema: object, schemaPath: string, research = false): string[] {
+export function buildAgentArgs(provider: AgentProvider, schema: object, schemaPath: string, research = false, model?: string): string[] {
+  const selectedModel = normalizeSelectedModel(provider, model);
+  const modelArgs = selectedModel ? ['--model', selectedModel] : [];
   if (provider === 'claude') {
-    return ['-p', '--output-format', research ? 'stream-json' : 'json',
+    return ['-p', ...modelArgs, '--output-format', research ? 'stream-json' : 'json',
       ...(research ? ['--verbose'] : []), '--json-schema', JSON.stringify(schema),
       '--tools', research ? 'WebSearch,WebFetch' : '',
       ...(research ? ['--allowedTools', 'WebSearch,WebFetch'] : []),
@@ -405,7 +434,7 @@ export function buildAgentArgs(provider: AgentProvider, schema: object, schemaPa
     'features.goals=false', 'features.code_mode.enabled=false', 'skills.bundled.enabled=false',
     'skills.include_instructions=false', 'project_doc_max_bytes=0', 'history.persistence="none"',
   ];
-  return ['exec', '--json', '--ephemeral', '--ignore-user-config', '--ignore-rules',
+  return ['exec', ...modelArgs, '--json', '--ephemeral', '--ignore-user-config', '--ignore-rules',
     '--sandbox', 'read-only', '--skip-git-repo-check', '--color', 'never',
     '--output-schema', schemaPath, ...overrides.flatMap((override) => ['-c', override]), '-'];
 }
@@ -448,7 +477,7 @@ export function extractProviderPayload(provider: AgentProvider, stdout: string):
 
 export function classifyProviderFailure(raw: string): AgentError {
   if (/unauthori[sz]ed|not logged in|authentication|log.?in|sign.?in|invalid.api.key|token.expired|401/i.test(raw)) {
-    return new AgentError('AUTH_REQUIRED', 'Sign in to the selected agent in Terminal, then try again. Use “codex login” or “claude auth login”.', 401);
+    return new AgentError('AUTH_REQUIRED', 'Connect the selected agent in Settings, complete its browser sign-in, then try again.', 401);
   }
   if (/rate.limit|usage.limit|quota|429|capacity|overloaded/i.test(raw)) {
     return new AgentError('PROVIDER_LIMIT', 'Your agent has reached an account limit or is busy. Wait a little or choose another agent.', 429);
@@ -456,7 +485,7 @@ export function classifyProviderFailure(raw: string): AgentError {
   if (/unknown (option|argument)|unrecognized (option|argument)|unexpected argument|invalid.*(flag|config)|unknown.*config/i.test(raw)) {
     return new AgentError('UPDATE_REQUIRED', 'Update the official agent CLI, then try again. This connection needs its current structured-output and isolation options.');
   }
-  return new AgentError('AGENT_FAILED', 'The agent could not complete this request. Check its sign-in and account access in Terminal, then try again.');
+  return new AgentError('AGENT_FAILED', 'The agent could not complete this request. Check its connection and account access in Settings, then try again.');
 }
 
 function normalizeUrl(value: string): string | null {
@@ -523,17 +552,17 @@ export function verifyResearchSources(result: ResearchResult, provider: AgentPro
 }
 
 const agentState = globalThis as typeof globalThis & { __whatloomAgentBusy?: boolean };
-async function runAgent(provider: AgentProvider, schema: object, prompt: string, signal?: AbortSignal, research = false) {
+export async function runAgent(provider: AgentProvider, schema: object, prompt: string, signal?: AbortSignal, research = false, model?: string) {
   if (agentState.__whatloomAgentBusy) throw new AgentError('AGENT_BUSY', 'Another agent task is already running. Let it finish, then try again.', 429);
   agentState.__whatloomAgentBusy = true;
   let directory: string | undefined;
   try {
     const executable = await discoverExecutable(provider);
-    if (!executable) throw new AgentError('AGENT_NOT_INSTALLED', `Install ${provider === 'codex' ? 'Codex' : 'Claude Code'} and sign in using its official CLI, then try again.`, 503);
+    if (!executable) throw new AgentError('AGENT_NOT_INSTALLED', `Install the official ${provider === 'codex' ? 'Codex' : 'Claude Code'} CLI, then connect it in Settings.`, 503);
     directory = await mkdtemp(join(tmpdir(), 'whatloom-'));
     const schemaPath = join(directory, 'response-schema.json');
     await writeFile(schemaPath, JSON.stringify(schema), { mode: 0o600 });
-    const result = await runBoundedProcess(executable, buildAgentArgs(provider, schema, schemaPath, research), {
+    const result = await runBoundedProcess(executable, buildAgentArgs(provider, schema, schemaPath, research, model), {
       cwd: directory, input: prompt, signal, timeoutMs: research ? 180_000 : 150_000, maxOutputBytes: research ? 2_000_000 : 1_000_000,
     });
     if (result.exitCode !== 0) throw classifyProviderFailure(result.stderr + '\n' + result.stdout);
@@ -558,7 +587,7 @@ CREATOR BRIEF (JSON):\n${JSON.stringify({ vision: input.vision, context: input.c
 }
 
 export async function generateExploration(input: ExploreInput, signal?: AbortSignal): Promise<GeneratedExploration> {
-  const { payload } = await runAgent(input.provider, explorationJsonSchema, explorationPrompt(input), signal);
+  const { payload } = await runAgent(input.provider, explorationJsonSchema, explorationPrompt(input), signal, false, input.model);
   const parsed = explorationSchema.safeParse(payload);
   if (!parsed.success) throw new AgentError('INVALID_AGENT_OUTPUT', 'The agent returned an incomplete or inconsistent exploration. Try again.');
   return parsed.data;
@@ -574,7 +603,7 @@ Investigate direct competitors, adjacent substitutes and existing workarounds. S
 Return the required JSON: evidence and summary. For every evidence item supply a useful title, the exact public HTTP(S) URL you opened, a short paraphrase (not a quote, max 500 characters) of the relevant finding with its limitation, stance supports/challenges/context, and one matching assumptionId from the brief. A competitor's existence is context; it does not validate demand. Treat every finding as needing human review.
 Never invent a product, citation, URL, result or claim to have browsed. If web access fails or no relevant material is found, return empty evidence and explain the limitation honestly in summary. Do not include private-network or local URLs. No numeric market promises.
 BRIEF (JSON):\n${JSON.stringify({ vision: input.vision, context: input.context, domain: input.domain, assumptions: input.assumptions })}`;
-  const { payload, events } = await runAgent(input.provider, researchJsonSchema, prompt, signal, true);
+  const { payload, events } = await runAgent(input.provider, researchJsonSchema, prompt, signal, true, input.model);
   const parsed = researchSchema.safeParse(payload);
   if (!parsed.success) throw new AgentError('INVALID_AGENT_OUTPUT', 'The agent did not return usable research sources. Try again or add sources manually.');
   return verifyResearchSources(parsed.data, input.provider, events, input.assumptions.map((assumption) => assumption.id));

@@ -3,8 +3,8 @@ import { assetPath } from "@/lib/hosting";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Whatloom — Make room for what could be.",
-  description: "A private invention studio. Explore possible futures, challenge assumptions, and find your first credible move.",
+  title: "Whatloom — Your startup thinking partner.",
+  description: "Find a worthwhile idea, research the market, shape the product and brand, and hand an approved brief to your AI builder.",
   applicationName: "Whatloom",
   manifest: assetPath("/manifest.webmanifest"),
   icons: {

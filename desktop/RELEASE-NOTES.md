@@ -1,14 +1,16 @@
-# Whatloom 0.1.0
+# Whatloom 0.2.0
 
-The first native Whatloom app for **Apple Silicon Macs running macOS 13 or later**.
+A founder journey from a rough curiosity to a reviewed product and brand, with a local AI builder for the next step.
 
-- Includes a local production server and its own Node.js 22 runtime; no Node.js/npm installation is required to use the app.
-- Keeps explorations in a persistent local desktop web store, with portable JSON import/export, Markdown briefs, and PNG future cards.
-- Connects to separately installed official Codex or Claude Code CLIs using their own sign-in. AI generation and research send the selected context to the chosen provider and remain subject to account access and limits.
-- Opens research links in the default browser and serves the studio only on `127.0.0.1:4310`.
+- Conversation beside editable documents across Discover, Research, Product, Name & brand, Review, and Build.
+- Guided browser sign-in from the app for separately installed official Codex and Claude Code CLIs, with connection status and cancellation.
+- Live Codex model discovery and documented Claude model aliases; the selected model follows partner sessions and build handoffs, subject to account access and limits.
+- Competitor/source records, a product brief focused on what/who/why and user journeys, naming choices, and editable SVG/CSS/JSON brand starting assets.
+- Explicit approval of the current revision before a coding agent can work in a fresh local folder. Material edits require renewed review. Follow or stop the build in the app; inspect its actual files and checks afterward.
+- Local project backups, the guided notebook without an AI account, and continued access to the earlier workbench and ten walkthroughs.
 
-Download the arm64 DMG or ZIP and move **Whatloom.app** to Applications. Checksums are supplied with the release.
+For **Apple Silicon Macs running macOS 13 or later**. Includes its Node.js 22 runtime and local server; no Node.js/npm installation is required. Move **Whatloom.app** into Applications. SHA-256 files accompany the ZIP and DMG.
 
-**Signing:** This prototype is ad-hoc signed, without an Apple Developer ID, and is **not notarized**. macOS may require the **Privacy & Security → Open Anyway** flow after you review the download. It has not passed Apple's notarized distribution assessment.
+Provider CLIs are optional and installed separately. AI conversation, research, and implementation send selected project context to that provider and follow its account limits and billing configuration. GitHub Pages supports the guided notebook and exports; provider sign-in and coding execution require the local app. A completed coding-agent run is not proof that every product requirement works and does not publish the result.
 
-Codex CLI generation and native research have been tested. Claude Code installation detection and mocked adapters are tested; its live model workflow has not yet been verified. AI findings require review.
+**Signing:** Ad-hoc signed, without an Apple Developer ID, and **not notarized**. macOS may require the **Privacy & Security → Open Anyway** flow after you review the download. The app has not passed Apple's notarized distribution assessment.
