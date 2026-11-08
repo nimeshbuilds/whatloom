@@ -1,12 +1,14 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile, chmod } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile, chmod } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
+import { spawn, execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import {
   AgentError, apiError, authorizeLocalRequest, buildAgentArgs, classifyProviderFailure,
   discoverExecutable, explorationSchema, exploreInputSchema, extractProviderPayload,
-  openedSourceUrls, readRequestJson, researchSchema, runBoundedProcess, verifyResearchSources,
+  openedSourceUrls, readRequestJson, researchSchema, runBoundedProcess, stopOwnedAgentProcesses, verifyResearchSources,
 } from '../lib/agent-server.ts';
 
 function fixture() {
@@ -131,6 +133,39 @@ test('bounded process runner stops timeouts, output overflow, and cancelled requ
   const controller = new AbortController();
   controller.abort();
   await assert.rejects(runBoundedProcess(process.execPath, [], { cwd: tmpdir(), signal: controller.signal }), (error) => error.code === 'CANCELLED');
+});
+
+test('server shutdown stops its owned detached group and nested child, preserving unrelated processes', { skip: process.platform === 'win32' }, async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'whatloom-shutdown-test-'));
+  const marker = join(directory, 'nested-pid');
+  const unrelated = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore', detached: true });
+  try {
+    const script = 'const child=require("node:child_process").spawn(process.execPath,["-e","setInterval(() => {}, 1000)"],{stdio:"ignore"}); require("node:fs").writeFileSync(process.argv[1],String(child.pid));setInterval(() => {},1000);';
+    const owned = runBoundedProcess(process.execPath, ['-e', script, marker], { cwd: directory, timeoutMs: 5000 });
+    let nestedPid;
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      try { nestedPid = Number(await readFile(marker, 'utf8')); break; } catch { await new Promise((resolve) => setTimeout(resolve, 20)); }
+    }
+    assert.ok(nestedPid, 'The fixture must start its nested child before shutdown.');
+    stopOwnedAgentProcesses();
+    const result = await owned;
+    assert.equal(result.exitCode, null);
+    let nestedStopped = false;
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      try {
+        const state = (await promisify(execFile)('ps', ['-o', 'stat=', '-p', String(nestedPid)])).stdout.trim();
+        if (!state || state.startsWith('Z')) { nestedStopped = true; break; }
+      } catch { nestedStopped = true; break; }
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    assert.equal(nestedStopped, true, 'The nested process must also stop with its owned group.');
+    assert.equal(unrelated.exitCode, null);
+    assert.doesNotThrow(() => process.kill(unrelated.pid, 0));
+  } finally {
+    stopOwnedAgentProcesses();
+    try { process.kill(-unrelated.pid, 'SIGTERM'); } catch { /* Already exited. */ }
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 
 test('provider failures expose helpful categories without leaking stderr content', async () => {

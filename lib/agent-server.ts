@@ -287,6 +287,29 @@ export async function discoverExecutable(provider: AgentProvider, options?: { pa
 }
 
 export interface ProcessResult { stdout: string; stderr: string; exitCode: number | null }
+const ownedAgentProcesses = globalThis as typeof globalThis & {
+  __whatloomOwnedAgentPids?: Set<number>;
+  __whatloomAgentShutdownHooks?: boolean;
+};
+const activeAgentPids = ownedAgentProcesses.__whatloomOwnedAgentPids ??= new Set<number>();
+
+export function stopOwnedAgentProcesses() {
+  // A CLI runs in its own process group. Kill only groups started by this server;
+  // a synchronous shutdown cleanup also runs before Next can exit the process.
+  for (const pid of activeAgentPids) {
+    try { process.kill(process.platform === 'win32' ? pid : -pid, 'SIGKILL'); } catch { /* Already exited. */ }
+  }
+  activeAgentPids.clear();
+}
+
+function installAgentShutdownHooks() {
+  if (ownedAgentProcesses.__whatloomAgentShutdownHooks) return;
+  ownedAgentProcesses.__whatloomAgentShutdownHooks = true;
+  process.on('SIGTERM', stopOwnedAgentProcesses);
+  process.on('SIGINT', stopOwnedAgentProcesses);
+  process.on('exit', stopOwnedAgentProcesses);
+}
+
 export function runBoundedProcess(executable: string, args: string[], options: {
   cwd: string; input?: string; timeoutMs?: number; maxOutputBytes?: number; signal?: AbortSignal;
 }): Promise<ProcessResult> {
@@ -296,6 +319,8 @@ export function runBoundedProcess(executable: string, args: string[], options: {
       cwd: options.cwd, shell: false, windowsHide: true, detached: process.platform !== 'win32',
       stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, NO_COLOR: '1' },
     });
+    installAgentShutdownHooks();
+    if (child.pid) activeAgentPids.add(child.pid);
     let failure: AgentError | undefined;
     let outputSize = 0;
     let settled = false;
@@ -324,6 +349,7 @@ export function runBoundedProcess(executable: string, args: string[], options: {
     const finish = (error?: AgentError, result?: ProcessResult) => {
       if (settled) return;
       settled = true;
+      if (child.pid) activeAgentPids.delete(child.pid);
       clearTimeout(timer);
       if (hardKill) clearTimeout(hardKill);
       options.signal?.removeEventListener('abort', onAbort);
