@@ -35,10 +35,10 @@
   "description": "A local invention studio for exploring possibilities, evidence, and first proofs.",
   "repository": {
     "type": "git",
-    "url": "https://github.com/npandeya/whatloom.git"
+    "url": "https://github.com/nimeshbuilds/whatloom.git"
   },
-  "homepage": "https://npandeya.github.io/whatloom/",
+  "homepage": "https://nimeshbuilds.github.io/whatloom/",
   "bugs": {
-    "url": "https://github.com/npandeya/whatloom/issues"
+    "url": "https://github.com/nimeshbuilds/whatloom/issues"
   }
 }

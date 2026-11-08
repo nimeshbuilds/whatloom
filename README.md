@@ -2,7 +2,7 @@
 
 ![Whatloom — Make room for what could be](public/brand/social-card.png)
 
-**[Try the browser studio](https://npandeya.github.io/whatloom/)** · **[Download the Mac app](https://github.com/npandeya/whatloom/releases/latest)**
+**[Try the browser studio](https://nimeshbuilds.github.io/whatloom/)** · **[Download the Mac app](https://github.com/nimeshbuilds/whatloom/releases/latest)**
 
 A local invention studio for turning a future worth creating into different mechanisms, explicit assumptions, an emerging ecosystem, and a first practical proof.
 
@@ -10,7 +10,7 @@ This is a working prototype. It helps organize invention and research; it cannot
 
 ## Mac app
 
-Download the Apple Silicon ZIP or DMG from [Releases](https://github.com/npandeya/whatloom/releases/latest). Move **Whatloom.app** into Applications, then open it. The app includes its Node.js runtime and local server; users do not need to install Node.js or npm. The native window hosts the full local studio, including the installed-agent connection.
+Download the Apple Silicon ZIP or DMG from [Releases](https://github.com/nimeshbuilds/whatloom/releases/latest). Move **Whatloom.app** into Applications, then open it. The app includes its Node.js runtime and local server; users do not need to install Node.js or npm. The native window hosts the full local studio, including the installed-agent connection.
 
 This first release targets **Apple Silicon Macs running macOS 13 or newer**. It is ad-hoc signed and **not notarized with an Apple Developer ID**. macOS may interrupt opening a downloaded preview build. No Developer ID signing identity is bundled or assumed. Intel Macs can use the source launcher below.
 
@@ -18,7 +18,7 @@ Your official Codex or Claude Code CLI still needs to be installed and signed in
 
 ## Browser studio on GitHub Pages
 
-[The hosted studio](https://npandeya.github.io/whatloom/) supports guided explorations, examples, assumptions, evidence entry, experiment records, PNG cards, and backup import/export. It saves to that browser profile. GitHub Pages does not run the local AI server: the hosted interface offers the Mac download for Codex/Claude features and does not transmit prompts to a nonexistent API.
+[The hosted studio](https://nimeshbuilds.github.io/whatloom/) supports guided explorations, examples, assumptions, evidence entry, experiment records, PNG cards, and backup import/export. It saves to that browser profile. GitHub Pages does not run the local AI server: the hosted interface offers the Mac download for Codex/Claude features and does not transmit prompts to a nonexistent API.
 
 ## Run from source on a Mac
 

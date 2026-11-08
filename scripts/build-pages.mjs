@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const outputDirectory = join(root, 'outputs', 'pages');
 const basePath = (process.env.WHATLOOM_BASE_PATH ?? process.env.NEXT_PUBLIC_BASE_PATH ?? '/whatloom').replace(/\/$/, '');
-const repositoryUrl = (process.env.NEXT_PUBLIC_REPOSITORY_URL || (process.env.GITHUB_REPOSITORY ? `https://github.com/${process.env.GITHUB_REPOSITORY}` : 'https://github.com/npandeya/whatloom')).replace(/\/$/, '');
+const repositoryUrl = (process.env.NEXT_PUBLIC_REPOSITORY_URL || (process.env.GITHUB_REPOSITORY ? `https://github.com/${process.env.GITHUB_REPOSITORY}` : 'https://github.com/nimeshbuilds/whatloom')).replace(/\/$/, '');
 
 if (basePath && !/^\/[A-Za-z0-9._~-]+(?:\/[A-Za-z0-9._~-]+)*$/.test(basePath)) {
   throw new Error('WHATLOOM_BASE_PATH must be empty or a path such as /whatloom.');
