@@ -23,3 +23,9 @@
 .hosted-banner{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:20px 38px;background:#e9eedc;border-bottom:1px solid #d7deca}.hosted-banner .eyebrow{font-size:8px;color:#6f7c55;margin-bottom:5px}.hosted-banner p{font-size:13px;font-weight:500;line-height:1.5}.hosted-banner small{display:block;font-size:10px;line-height:1.7;color:#717c61;margin-top:3px}.hosted-banner>a{flex-shrink:0;font-size:11px}.hosted-download-button{display:flex;width:100%;margin:23px 0;font-size:13px;padding:14px}.hosted-handoff{border:1px solid var(--line);border-radius:7px;padding:17px;background:#f0f1e8}.hosted-handoff .eyebrow{font-size:8px;margin-bottom:7px}.hosted-handoff p{font-size:12px;line-height:1.8;color:#727b64}
 @media(max-width:1000px){.hosted-banner{padding:18px 28px;gap:16px}.hosted-banner p{font-size:12px}.hosted-banner small{font-size:9px}.hosted-banner>a{font-size:10px;padding:11px}}
 @media(max-width:640px){.hosted-banner{padding:17px 22px;align-items:flex-start;flex-direction:column;gap:13px}.hosted-banner p{font-size:12px}.hosted-banner small{font-size:10px}.hosted-banner>a{width:100%;font-size:11px;padding:11px}.hosted-download-button{font-size:12px}.hosted-handoff p{font-size:11px}}
+/* Keep guided practice controls close to the editable workspace. */
+#scenario-guide,#scenario-workspace,#scenario-ecosystem{scroll-margin-top:24px}
+.scenario-return-button{position:fixed;right:24px;bottom:22px;z-index:18;display:flex;align-items:center;gap:8px;background:var(--ink,#25291f);color:#f6f4ee;border:1px solid #4d5542;border-radius:30px;padding:11px 17px;font-size:12px;box-shadow:0 4px 18px #25291f20;cursor:pointer}
+.scenario-return-button:hover{background:#414a33}.scenario-return-button:focus-visible{outline:3px solid #b9d443;outline-offset:3px}
+.scenario-return-button~.toast{bottom:78px}
+@media(max-width:640px){.scenario-return-button{right:16px;bottom:16px;padding:10px 14px;font-size:11px}}

@@ -20,6 +20,8 @@ Your official Codex or Claude Code CLI still needs to be installed and signed in
 
 [The hosted studio](https://nimeshbuilds.github.io/whatloom/) supports guided explorations, examples, assumptions, evidence entry, experiment records, PNG cards, and backup import/export. It saves to that browser profile. GitHub Pages does not run the local AI server: the hosted interface offers the Mac download for Codex/Claude features and does not transmit prompts to a nonexistent API.
 
+Start with **[Guided scenarios](https://nimeshbuilds.github.io/whatloom/#scenarios)** to try ten different uses of the studio. Each opens its own editable practice exploration, with instructions, an expected outcome for each step, and a checklist you can resume on this browser. Practice materials are illustrative; completing a checklist does not validate an idea or record a real experiment. All ten work without an AI account.
+
 ## Run from source on a Mac
 
 Double-click **Start Whatloom.command**. The launcher finds Node.js, installs this project's dependencies if needed, starts the app at **http://127.0.0.1:4310**, and opens your browser. Keep its Terminal window open while using Whatloom; press **Control-C** there to stop it.

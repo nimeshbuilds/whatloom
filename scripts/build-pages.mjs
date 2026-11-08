@@ -24,7 +24,8 @@ try {
   await Promise.all(['app', 'lib'].map((directory) => mkdir(join(stage, directory), { recursive: true })));
   const files = [
     'app/page.tsx', 'app/layout.tsx', 'app/globals.css',
-    'lib/studio.ts', 'lib/studio-types.ts', 'lib/hosting.ts',
+    'app/scenario-experiences.tsx', 'app/scenario-experiences.css',
+    'lib/studio.ts', 'lib/studio-types.ts', 'lib/hosting.ts', 'lib/scenarios.ts',
     'package.json', 'package-lock.json', 'tsconfig.json',
   ];
   for (const file of files) await cp(join(root, file), join(stage, file));
