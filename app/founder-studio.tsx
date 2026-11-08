@@ -21,6 +21,7 @@ import {
   Menu,
   MessageCircle,
   Plus,
+  RefreshCw,
   Search,
   Settings2,
   Sparkles,
@@ -50,6 +51,8 @@ import type { FounderPatch, FounderProject, FounderStage } from "@/lib/founder";
 import { HOSTED_STUDIO, MAC_DOWNLOAD_URL, assetPath } from "@/lib/hosting";
 import { downloadFile, safeUrl, STORAGE_KEY, parseImport } from "@/lib/studio";
 import { AgentSettings, useAgentConnection } from "./agent-settings";
+import { GitHubSettings, githubChoice, githubChoiceError, repositoryNameError, safeGitHubUrl, useGitHubConnection } from "./github-settings";
+import type { GitHubPublishChoice, GitHubTarget } from "./github-settings";
 import { founderFromExploration } from "@/lib/founder-migration";
 import type { StudioProject } from "@/lib/studio-types";
 import type { FounderProvider } from "./agent-settings";
@@ -67,11 +70,130 @@ type BuildJob = {
   projectTitle: string;
   provider: string;
   model: string | null;
-  status: "queued" | "running" | "completed" | "failed" | "cancelled";
+  status: "queued" | "running" | "verifying" | "publishing" | "completed" | "failed" | "cancelled";
   directory: string;
   logs: string[];
   error: string | null;
+  updatedAt?: string;
+  verification?: {
+    status: "pending" | "running" | "passed" | "failed";
+    summary?: string;
+    checks?: { name: string; kind: string; status: string; exitCode?: number | null; output?: string }[];
+    error?: string;
+    limitations?: string[];
+  };
+  publication?: {
+    status: "pending" | "publishing" | "published" | "failed";
+    target: GitHubTarget;
+    url?: string;
+    error?: string;
+    commit?: string;
+  };
 };
+const ACTIVE_BUILD_STATES = ["queued", "running", "verifying", "publishing"];
+const GITHUB_PREFERENCES_KEY = "whatloom.founder.github";
+function readGitHubPreferences(value: unknown): Record<string, GitHubPublishChoice> {
+  const result: Record<string, GitHubPublishChoice> = {};
+  if (!value || typeof value !== "object" || Array.isArray(value)) return result;
+  for (const [id, candidate] of Object.entries(value)) {
+    const item = candidate as GitHubPublishChoice;
+    if (!item || typeof item !== "object" || typeof item.enabled !== "boolean" ||
+      typeof item.repositoryEdited !== "boolean" || typeof item.account !== "string" || item.account.length > 100 ||
+      typeof item.owner !== "string" || item.owner.length > 100 || typeof item.repository !== "string" || item.repository.length > 100 ||
+      !["private", "public"].includes(item.visibility)) continue;
+    result[id] = { enabled: item.enabled, repositoryEdited: item.repositoryEdited, account: item.account,
+      owner: item.owner, repository: item.repository, visibility: item.visibility };
+  }
+  return result;
+}
+function readBuildJob(value: unknown): BuildJob | undefined {
+  if (!value || typeof value !== "object") return;
+  const item = value as BuildJob;
+  if (typeof item.projectId !== "string" || typeof item.id !== "string" || typeof item.directory !== "string" ||
+    typeof item.projectTitle !== "string" || !Number.isInteger(item.projectRevision) ||
+    ![...ACTIVE_BUILD_STATES, "completed", "failed", "cancelled"].includes(item.status) ||
+    !Array.isArray(item.logs) || !item.logs.every(line => typeof line === "string")) return;
+  const result: BuildJob = { id: item.id, projectId: item.projectId, projectRevision: item.projectRevision,
+    projectTitle: item.projectTitle, provider: typeof item.provider === "string" ? item.provider : "codex",
+    model: typeof item.model === "string" ? item.model : null, status: item.status, directory: item.directory,
+    logs: item.logs.slice(-180).map(line => line.slice(0, 10000)), error: typeof item.error === "string" ? item.error : null,
+    ...(typeof item.updatedAt === "string" && Number.isFinite(Date.parse(item.updatedAt)) ? { updatedAt: item.updatedAt } : {}) };
+  if (item.verification && ["pending", "running", "passed", "failed"].includes(item.verification.status)) {
+    result.verification = { status: item.verification.status,
+      ...(typeof item.verification.summary === "string" ? { summary: item.verification.summary } : {}),
+      ...(typeof item.verification.error === "string" ? { error: item.verification.error } : {}),
+      ...(Array.isArray(item.verification.limitations) ? { limitations: item.verification.limitations.filter(line => typeof line === "string").slice(0, 30) } : {}),
+      checks: Array.isArray(item.verification.checks) ? item.verification.checks.filter(check => check && typeof check.name === "string" && typeof check.kind === "string" && typeof check.status === "string").slice(0, 50).map(check => ({
+        name: check.name, kind: check.kind, status: check.status,
+        ...(typeof check.exitCode === "number" || check.exitCode === null ? { exitCode: check.exitCode } : {}),
+        ...(typeof check.output === "string" ? { output: check.output.slice(0, 30000) } : {}),
+      })) : [],
+    };
+  }
+  const publication = item.publication;
+  if (publication && ["pending", "publishing", "published", "failed"].includes(publication.status) && publication.target &&
+    typeof publication.target.account === "string" && typeof publication.target.owner === "string" &&
+    typeof publication.target.repository === "string" && !repositoryNameError(publication.target.repository) && ["private", "public"].includes(publication.target.visibility)) {
+    result.publication = { status: publication.status, target: { account: publication.target.account, owner: publication.target.owner,
+      repository: publication.target.repository, visibility: publication.target.visibility },
+      ...(typeof publication.url === "string" && safeGitHubUrl(publication.url, "repository") ? { url: safeGitHubUrl(publication.url, "repository") } : {}),
+      ...(typeof publication.error === "string" ? { error: publication.error } : {}),
+      ...(typeof publication.commit === "string" && /^[a-f0-9]{7,64}$/i.test(publication.commit) ? { commit: publication.commit } : {}),
+    };
+  }
+  return result;
+}
+function newerBuildJob(current: BuildJob | undefined, incoming: BuildJob): BuildJob {
+  if (current?.id === incoming.id && current.updatedAt && incoming.updatedAt &&
+    (Date.parse(current.updatedAt) > Date.parse(incoming.updatedAt) ||
+      (current.updatedAt === incoming.updatedAt && !ACTIVE_BUILD_STATES.includes(current.status) && ACTIVE_BUILD_STATES.includes(incoming.status)))) return current;
+  return incoming;
+}
+function BuildProgress({ job, revision, busy, onCancel, onRetry, onReconnect }: {
+  job: BuildJob; revision: number; busy: boolean; onCancel: () => void; onRetry: () => void; onReconnect: () => void;
+}) {
+  const active = ACTIVE_BUILD_STATES.includes(job.status);
+  const verification = job.verification;
+  const publication = job.publication;
+  const published = publication?.status === "published";
+  const repositoryUrl = safeGitHubUrl(publication?.url, "repository");
+  const buildDone = ["verifying", "publishing", "completed"].includes(job.status) || Boolean(verification && ["running", "passed", "failed"].includes(verification.status));
+  const title = job.status === "verifying" ? "Checking your generated app" : job.status === "publishing" ? "Publishing to GitHub" :
+    job.status === "queued" || job.status === "running" ? "Your builder is working" : published ? "Built, checked, and on GitHub" :
+    publication?.status === "failed" && verification?.status === "passed" ? "Local build ready. GitHub needs attention." :
+    job.status === "cancelled" ? "Build stopped" : job.status === "failed" ? "The build needs attention" :
+    verification?.status === "passed" ? "Your local build passed its checks" : "The builder finished its run";
+  const checkLabel = (status: string) => ({ pending: "Waiting", running: "Running", passed: "Passed", failed: "Failed", skipped: "Skipped" })[status] || status;
+  return <section className="f-build-status" aria-live="polite" aria-label="Build, verification and publication status">
+    <div className="f-row"><h4>{title}</h4>{active && <Loader2 size={17} className="f-spin" />}</div>
+    <ol className="f-build-stages" aria-label="Build progress">
+      <li data-state={buildDone ? "passed" : job.status === "running" || job.status === "queued" ? "running" : "failed"}>{buildDone ? <CheckCircle2 size={15} /> : <Circle size={15} />}<span>Build</span></li>
+      <li data-state={verification?.status || "pending"}>{verification?.status === "passed" ? <CheckCircle2 size={15} /> : <Circle size={15} />}<span>Checks</span></li>
+      <li data-state={published ? "passed" : publication?.status === "publishing" ? "running" : publication?.status === "failed" ? "failed" : "pending"}>{published ? <CheckCircle2 size={15} /> : <Circle size={15} />}<span>{publication ? "GitHub" : "Keep local"}</span></li>
+    </ol>
+    {job.error && <p className="f-build-error" role="alert">{job.error}</p>}
+    <p className="f-fine">Approved revision {job.projectRevision}{job.projectRevision !== revision ? " · Your working brief has changed since this build started." : ""}</p>
+    <p className="f-build-location">Your local project <code>{job.directory}</code></p>
+    {verification && <div className="f-build-checks"><h5>{verification.status === "passed" ? "Checks passed" : verification.status === "failed" ? "Checks need attention" : verification.status === "running" ? "Running project checks" : "Checks follow the build"}</h5>
+      {verification.summary && <p>{verification.summary}</p>}{verification.error && <p className="f-build-error">{verification.error}</p>}
+      {verification.checks?.map((check, index) => <details className="f-build-check" key={`${check.kind}-${check.name}-${index}`}><summary><span className={`f-check-dot ${check.status}`} /><span>{check.name}<small>{check.kind}{typeof check.exitCode === "number" ? ` · exit ${check.exitCode}` : ""}</small></span><b>{checkLabel(check.status)}</b></summary>{check.output && <pre>{check.output}</pre>}</details>)}
+      {Boolean(verification.limitations?.length) && <div className="f-check-limitations"><strong>Still to review</strong><ul>{verification.limitations!.map((limitation, index) => <li key={index}>{limitation}</li>)}</ul></div>}
+    </div>}
+    {publication && <div className={`f-build-publication ${publication.status}`}><h5>{published ? "Your repository is ready" : publication.status === "publishing" ? "Pushing your generated app" : publication.status === "failed" ? "GitHub publication needs attention" : "Your GitHub destination"}</h5>
+      <p><strong>{publication.target.owner}/{publication.target.repository}</strong> <span className="f-tag">{publication.target.visibility}</span></p>
+      {published && repositoryUrl ? <a className="f-secondary" href={repositoryUrl} target="_blank" rel="noreferrer">Open on GitHub <ExternalLink size={14} /></a> : publication.status === "failed" ? <>
+        <p>{verification?.status === "passed" ? "Your local app and its passing checks are kept. GitHub publishing did not finish." : "Publishing is blocked until the project checks pass. Your local files are kept."}</p>
+        {publication.error && <p className="f-build-error">{publication.error}</p>}
+        <div className="f-actions"><button className="f-secondary" disabled={busy || active} onClick={onRetry}><RefreshCw size={13} /> Retry tests &amp; publish</button><button className="f-text" disabled={busy || active} onClick={onReconnect}>Reconnect GitHub <ExternalLink size={12} /></button></div>
+        <small>Retries this build folder and the same repository destination.</small>
+      </> : <p>{publication.status === "publishing" ? "Creating the repository and committing and pushing the generated app." : "Publishing starts only after the project checks pass."}</p>}
+      {published && publication.commit && <small>Commit {publication.commit.slice(0, 12)}</small>}
+    </div>}
+    {job.logs.length > 0 && <details className="f-build-log"><summary>Builder output</summary><pre>{job.logs.join("\n")}</pre></details>}
+    {active && <><p className="f-fine">Keep Whatloom open until testing and publishing finish.</p><button className="f-secondary" onClick={onCancel}><Square size={12} /> {job.status === "publishing" ? "Stop publishing" : "Stop build"}</button></>}
+    <p className="f-fine">Review the generated app against your user journeys and success criteria. GitHub publishing does not deploy it.</p>
+  </section>;
+}
 const STAGES: {
   id: FounderStage;
   short: string;
@@ -154,7 +276,7 @@ const STAGES: {
     title: "From a clear brief to a first version.",
     subtitle: "Give your chosen builder the approved product and brand.",
     prompt:
-      "Your approved brief becomes the builder’s source of truth. Choose Codex or Claude, then start a build in its own new local folder. The builder decides how to implement the product and reports what it completed.",
+      "Your approved brief becomes the builder’s source of truth. Choose Codex or Claude, then build in a new local folder. Whatloom checks the generated app before optional GitHub publishing. Connect GitHub and enable automatic commit and push if you want a new repository after the checks pass.",
     suggestions: [
       "Summarize the product for a builder",
       "What should I check when the first version is ready?",
@@ -376,6 +498,7 @@ export default function FounderStudio() {
   const [drafts, setDrafts] = useState<Record<string, PendingDraft>>({});
   const [suggestions, setSuggestions] = useState<Record<string, string[]>>({});
   const [jobs, setJobs] = useState<Record<string, BuildJob>>({});
+  const [githubPreferences, setGitHubPreferences] = useState<Record<string, GitHubPublishChoice>>({});
   const [mobilePanel, setMobilePanel] = useState<"chat" | "document">("chat");
   const [sourceForm, setSourceForm] = useState(false);
   const [source, setSource] = useState({ title: "", url: "", note: "" });
@@ -388,6 +511,8 @@ export default function FounderStudio() {
   const stageRailRef = useRef<HTMLElement>(null);
   const importRef = useRef<HTMLInputElement>(null);
   const recovery = useRef("");
+  const activeProjectRef = useRef<string | null>(null);
+  const buildRequestRef = useRef(0);
   const connection = useAgentConnection(provider);
   const project = projects.find((p) => p.id === activeId);
   const stage = STAGES.find((s) => s.id === project?.stage) || STAGES[0];
@@ -395,6 +520,10 @@ export default function FounderStudio() {
   const approved = project ? isFounderApproved(project) : false;
   const pending = project ? drafts[project.id] : undefined;
   const job = project ? jobs[project.id] : undefined;
+  const github = useGitHubConnection(loaded && view === "project" && stage.id === "build");
+  const publicationChoice = githubChoice(project ? titleFor(project) : "my-product", project ? githubPreferences[project.id] : undefined, github.connection);
+  const publicationProblem = githubChoiceError(publicationChoice, github.connection, github.loading);
+  const buildActive = Boolean(job && ACTIVE_BUILD_STATES.includes(job.status));
   const providerLabel =
     provider === "guided"
       ? "Guided notebook"
@@ -469,25 +598,19 @@ export default function FounderStudio() {
       if (saved && typeof saved === "object") {
         const restored: Record<string, BuildJob> = {};
         for (const [id, value] of Object.entries(saved)) {
-          const item = value as BuildJob;
-          if (
-            item?.projectId === id &&
-            typeof item.id === "string" &&
-            typeof item.directory === "string" &&
-            typeof item.projectTitle === "string" &&
-            Number.isInteger(item.projectRevision) &&
-            ["queued", "running", "completed", "failed", "cancelled"].includes(
-              item.status,
-            ) &&
-            Array.isArray(item.logs) &&
-            item.logs.every((line) => typeof line === "string")
-          )
+          const item = readBuildJob(value);
+          if (item?.projectId === id)
             restored[id] = item;
         }
         setJobs(restored);
       }
     } catch {
       /* A build folder remains on disk even without its UI history. */
+    }
+    try {
+      setGitHubPreferences(readGitHubPreferences(JSON.parse(localStorage.getItem(GITHUB_PREFERENCES_KEY) || "{}")));
+    } catch {
+      /* Optional publishing preferences start disabled if they cannot be read. */
     }
     const syncRoute = () => {
       const hash = location.hash;
@@ -529,6 +652,15 @@ export default function FounderStudio() {
     }
   }, [drafts, jobs, loaded, storageBlocked]);
   useEffect(() => {
+    if (!loaded || storageBlocked) return;
+    try { localStorage.setItem(GITHUB_PREFERENCES_KEY, JSON.stringify(githubPreferences)); }
+    catch {
+      // Report an external storage failure without changing the saved project.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setNotice("GitHub destination preferences could not be saved. Check them before your next build.");
+    }
+  }, [githubPreferences, loaded, storageBlocked]);
+  useEffect(() => {
     if (!loaded) return;
     try {
       localStorage.setItem("whatloom.founder.provider", provider);
@@ -543,6 +675,10 @@ export default function FounderStudio() {
   }, [provider, model, loaded]);
   useEffect(() => {
     const sync = (event: StorageEvent) => {
+      if (event.key === GITHUB_PREFERENCES_KEY && !storageBlocked) {
+        try { setGitHubPreferences(readGitHubPreferences(JSON.parse(event.newValue || "{}"))); } catch { /* Keep this window's checked preferences. */ }
+        return;
+      }
       if (event.key !== FOUNDER_STORAGE_KEY || storageBlocked) return;
       try {
         const values: unknown = JSON.parse(event.newValue || "[]");
@@ -557,6 +693,7 @@ export default function FounderStudio() {
     window.addEventListener("storage", sync);
     return () => window.removeEventListener("storage", sync);
   }, [storageBlocked]);
+  useEffect(() => { activeProjectRef.current = project?.id || null; }, [project?.id]);
   useEffect(() => {
     if (!notice) return;
     const timer = setTimeout(() => setNotice(""), 5000);
@@ -589,20 +726,26 @@ export default function FounderStudio() {
       !jobProjectId ||
       !jobStatus ||
       HOSTED_STUDIO ||
-      !["running", "queued"].includes(jobStatus)
+      !ACTIVE_BUILD_STATES.includes(jobStatus)
     )
       return;
     let stopped = false;
+    let polling = false;
+    const abort = new AbortController();
     const timer = setInterval(async () => {
+      if (polling) return;
+      polling = true;
       try {
         const res = await fetch(`/api/build?id=${encodeURIComponent(jobId)}`, {
           cache: "no-store",
+          signal: abort.signal,
         });
         const data = await res.json();
-        if (!stopped && res.ok && data.job)
-          setJobs((prev) => ({ ...prev, [jobProjectId]: data.job }));
+        const updated = readBuildJob(data.job);
+        if (!stopped && res.ok && updated?.id === jobId && updated.projectId === jobProjectId)
+          setJobs((prev) => prev[jobProjectId]?.id === jobId ? ({ ...prev, [jobProjectId]: newerBuildJob(prev[jobProjectId], updated) }) : prev);
         else if (!stopped && !res.ok) {
-          setError(
+          if (activeProjectRef.current === jobProjectId) setError(
             data.error ||
               "Build status is unavailable. The project folder is still on disk.",
           );
@@ -610,10 +753,11 @@ export default function FounderStudio() {
         }
       } catch {
         /* A transient connection can recover on the next poll. */
-      }
+      } finally { polling = false; }
     }, 2000);
     return () => {
       stopped = true;
+      abort.abort();
       clearInterval(timer);
     };
   }, [jobId, jobStatus, jobProjectId]);
@@ -927,6 +1071,7 @@ export default function FounderStudio() {
   }
   async function build() {
     if (!project || !approved || busyRef.current) return;
+    if (publicationProblem) { setError(publicationProblem); return; }
     if (
       HOSTED_STUDIO ||
       provider === "guided" ||
@@ -940,6 +1085,8 @@ export default function FounderStudio() {
     busyRef.current = true;
     setBusy(true);
     setBusyStage("build");
+    const targetProject = project;
+    const requestVersion = ++buildRequestRef.current;
     try {
       const response = await fetch("/api/build", {
         method: "POST",
@@ -948,24 +1095,29 @@ export default function FounderStudio() {
           project,
           provider,
           ...(model ? { model } : {}),
+          ...(publicationChoice.enabled ? { github: { account: publicationChoice.account, owner: publicationChoice.owner,
+            repository: publicationChoice.repository.trim(), visibility: publicationChoice.visibility } } : {}),
         }),
       });
       const data = await response.json();
       if (!response.ok)
         throw new Error(data.error || "The builder could not start.");
-      setJobs((prev) => ({ ...prev, [project.id]: data.job }));
-      setNotice("The builder has your approved brief and brand assets.");
+      const started = readBuildJob(data.job);
+      if (!started || started.projectId !== targetProject.id) throw new Error("The builder returned an unreadable job. Your approved brief is still saved.");
+      setJobs((prev) => ({ ...prev, [targetProject.id]: started }));
+      if (activeProjectRef.current === targetProject.id)
+        setNotice(publicationChoice.enabled ? "Your builder will create the app, run its checks, then publish to GitHub." : "The builder has your approved brief and brand assets.");
     } catch (err) {
-      setError(
+      if (activeProjectRef.current === targetProject.id) setError(
         err instanceof Error ? err.message : "The builder could not start.",
       );
     } finally {
-      busyRef.current = false;
-      setBusy(false);
+      if (buildRequestRef.current === requestVersion) { busyRef.current = false; setBusy(false); }
     }
   }
   async function cancelBuild() {
     if (!job) return;
+    const targetJob = job;
     try {
       const response = await fetch(
         `/api/build?id=${encodeURIComponent(job.id)}`,
@@ -974,12 +1126,31 @@ export default function FounderStudio() {
       const data = await response.json();
       if (!response.ok)
         throw new Error(data.error || "Could not stop the builder.");
-      setJobs((prev) => ({ ...prev, [job.projectId]: data.job }));
+      const cancelled = readBuildJob(data.job);
+      if (!cancelled || cancelled.id !== targetJob.id || cancelled.projectId !== targetJob.projectId) throw new Error("The build status could not be read. Refresh its progress before trying again.");
+      setJobs((prev) => prev[targetJob.projectId]?.id === targetJob.id ? ({ ...prev, [targetJob.projectId]: newerBuildJob(prev[targetJob.projectId], cancelled) }) : prev);
     } catch (err) {
-      setError(
+      if (activeProjectRef.current === targetJob.projectId) setError(
         err instanceof Error ? err.message : "Could not stop the builder.",
       );
     }
+  }
+  async function retryPublication() {
+    if (!job || !job.publication || job.publication.status !== "failed" || busyRef.current || ACTIVE_BUILD_STATES.includes(job.status)) return;
+    const targetJob = job;
+    const requestVersion = ++buildRequestRef.current;
+    busyRef.current = true; setBusy(true); setBusyStage("build"); setError("");
+    try {
+      const response = await fetch("/api/build", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "retry-publish", id: targetJob.id }) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "The checks and GitHub publication could not restart.");
+      const updated = readBuildJob(data.job);
+      if (!updated || updated.projectId !== targetJob.projectId) throw new Error("The restarted build status could not be read. Your local files are still available.");
+      setJobs((prev) => prev[targetJob.projectId]?.id === targetJob.id ? ({ ...prev, [targetJob.projectId]: newerBuildJob(prev[targetJob.projectId], updated) }) : prev);
+      if (activeProjectRef.current === targetJob.projectId) setNotice("Running the checks again before retrying this GitHub destination.");
+    } catch (failure) {
+      if (activeProjectRef.current === targetJob.projectId) setError(failure instanceof Error ? failure.message : "Could not restart testing and publishing.");
+    } finally { if (buildRequestRef.current === requestVersion) { busyRef.current = false; setBusy(false); } }
   }
   const nextStage = STAGES[STAGES.findIndex((s) => s.id === stage.id) + 1];
   const lastUser = project?.messages
@@ -2626,6 +2797,9 @@ export default function FounderStudio() {
                                 ))}
                               </select>
                             </label>
+                            <GitHubSettings key={project.id} value={publicationChoice} github={github}
+                              disabled={busy || buildActive}
+                              onChange={value => setGitHubPreferences(prev => ({ ...prev, [project.id]: value }))} />
                             {HOSTED_STUDIO ? (
                               <a
                                 className="f-primary f-full"
@@ -2641,13 +2815,12 @@ export default function FounderStudio() {
                                 className="f-primary f-full"
                                 disabled={
                                   busy ||
-                                  (!!job &&
-                                    ["queued", "running"].includes(job.status))
+                                  buildActive || Boolean(publicationProblem)
                                 }
                                 onClick={() => void build()}
                               >
                                 {connection.connection?.status === "connected"
-                                  ? `Start building with ${providerLabel}`
+                                  ? publicationChoice.enabled ? "Build, test & publish" : `Build & test with ${providerLabel}`
                                   : "Connect your builder"}{" "}
                                 <ArrowRight size={15} />
                               </button>
@@ -2656,58 +2829,18 @@ export default function FounderStudio() {
                               Starting a build creates a new folder in Documents
                               / Whatloom Builds. The selected agent receives the
                               approved brief and can write the first version
-                              there. Provider usage follows your account.
-                              Publishing is a separate decision.
+                              there. Provider usage follows your account. {publicationChoice.enabled
+                                ? `After checks pass, the generated app will be committed and pushed to ${publicationChoice.owner}/${publicationChoice.repository.trim()} (${publicationChoice.visibility}).`
+                                : "GitHub publishing is off. Your build stays on this computer."}
+                              {" "}Keep Whatloom open until testing and publishing finish.
                             </p>
                           </>
                         )}
                       </div>
                       {job && (
-                        <div className="f-build-status" aria-live="polite">
-                          <div className="f-row">
-                            <h4>
-                              {job.status === "running" ||
-                              job.status === "queued"
-                                ? "Your builder is working"
-                                : job.status === "completed"
-                                  ? "The builder finished its run"
-                                  : job.status === "cancelled"
-                                    ? "Build stopped"
-                                    : "The build needs attention"}
-                            </h4>
-                            {["queued", "running"].includes(job.status) && (
-                              <Loader2 size={16} className="f-spin" />
-                            )}
-                          </div>
-                          <p>
-                            {job.error ||
-                              "Your brief, brand assets, and any generated files are in the project folder below."}
-                          </p>
-                          <p className="f-fine">
-                            Building approved revision {job.projectRevision}
-                            {job.projectRevision !== project.revision
-                              ? " · Your working brief has changed since this build started."
-                              : ""}
-                          </p>
-                          <code>{job.directory}</code>
-                          {job.logs.length > 0 && (
-                            <pre>{job.logs.join("\n")}</pre>
-                          )}
-                          {["queued", "running"].includes(job.status) && (
-                            <button
-                              className="f-secondary"
-                              style={{ marginTop: 15 }}
-                              onClick={() => void cancelBuild()}
-                            >
-                              <Square size={12} /> Stop build
-                            </button>
-                          )}
-                          <p className="f-fine">
-                            A completed run is the start of review. Check the
-                            result against your user journeys and success
-                            criteria.
-                          </p>
-                        </div>
+                        <BuildProgress job={job} revision={project.revision} busy={busy}
+                          onCancel={() => void cancelBuild()} onRetry={() => void retryPublication()}
+                          onReconnect={() => void github.act("login")} />
                       )}
                     </>
                   )}

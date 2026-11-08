@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, ArrowRight, Plus, X, Search, LayoutGrid, FolderOpen, BookOpen, Settings2, ChevronDown, ChevronRight, Download, Upload, Link2, Sparkles, Check, Circle, CircleCheck, CircleDashed, FlaskConical, GitBranch, Layers3, Compass, PanelLeftClose, Menu, FileText, ExternalLink, Loader2, Copy, Trash2, ShieldCheck, CornerDownLeft, Paperclip, MoreHorizontal, Lightbulb, RefreshCw, ZoomIn, ZoomOut, Pencil, AlertTriangle } from 'lucide-react';
+import { ArrowUpRight, ArrowRight, Plus, X, Search, FolderOpen, BookOpen, Settings2, ChevronDown, ChevronRight, Download, Upload, Link2, Sparkles, Check, Circle, CircleCheck, CircleDashed, FlaskConical, GitBranch, Layers3, Compass, Menu, FileText, ExternalLink, Loader2, Copy, Trash2, ShieldCheck, Paperclip, MoreHorizontal, Lightbulb, RefreshCw, ZoomIn, ZoomOut, Pencil, AlertTriangle } from 'lucide-react';
 import { EXAMPLES, STORAGE_KEY, exampleProject, guidedProject, fromGenerated, toMarkdown, researchBrief, downloadFile, futureCard, downloadFuturePng, uid, parseImport, safeUrl } from '@/lib/studio';
-import type { StudioProject, Provider, InventionPath, Evidence, Assumption, GeneratedExploration } from '@/lib/studio-types';
+import type { StudioProject, Provider, Evidence, Assumption, GeneratedExploration } from '@/lib/studio-types';
 import { HOSTED_STUDIO, MAC_DOWNLOAD_URL, REPOSITORY_URL, assetPath } from '@/lib/hosting';
 import { SCENARIOS, createScenarioProject } from '@/lib/scenarios';
 import { ScenarioGallery, ScenarioGuide, ScenarioHomeIntro } from './scenario-experiences';
@@ -52,7 +52,7 @@ export default function Studio() {
   const [loaded, setLoaded] = useState(false);
   const [storageError, setStorageError] = useState(false);
   const [storageBlocked, setStorageBlocked] = useState(false);
-  const recoveryRef = useRef<string | null>(null);
+  const [recovery, setRecovery] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('map');
   const [vision, setVision] = useState('');
   const [context, setContext] = useState('');
@@ -89,10 +89,11 @@ export default function Studio() {
   const resumableScenarios = Object.fromEntries(Object.entries(scenarioSessions).filter(([, session]) => projects.some(p => p.id === session.projectId)));
   const providerName = HOSTED_STUDIO || provider === 'guided' ? 'Guided studio' : provider === 'codex' ? 'Codex' : 'Claude Code';
 
+  /* eslint-disable react-hooks/set-state-in-effect -- Hydrate external browser storage and URL state after mount; these sources are unavailable during SSR. */
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) { recoveryRef.current = saved; const values: unknown = JSON.parse(saved); if (!Array.isArray(values)) throw new Error(); setProjects(values.map(parseImport)); }
+      if (saved) { setRecovery(saved); const values: unknown = JSON.parse(saved); if (!Array.isArray(values)) throw new Error(); setProjects(values.map(parseImport)); }
       const savedProvider = localStorage.getItem('whatloom.provider');
       if (!HOSTED_STUDIO && (savedProvider === 'codex' || savedProvider === 'claude')) setProvider(savedProvider);
     } catch { setStorageError(true); setStorageBlocked(true); }
@@ -114,8 +115,15 @@ export default function Studio() {
     window.addEventListener('hashchange', restoreLocation);
     return () => window.removeEventListener('hashchange', restoreLocation);
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
+  // Surface an external storage write failure so editing stops before data is lost.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { if (!loaded || storageBlocked) return; try { localStorage.setItem(STORAGE_KEY, JSON.stringify(projects)); } catch { setStorageError(true); setStorageBlocked(true); } }, [projects, loaded, storageBlocked]);
+  // Scenario progress has its own external storage failure state.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { if (!loaded) return; try { localStorage.setItem(SCENARIO_STORAGE_KEY, JSON.stringify(scenarioSessions)); } catch { setScenarioStorageError(true); } }, [scenarioSessions, loaded]);
+  // Report a failed external preference write without changing the chosen provider.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { if (loaded) { try { localStorage.setItem('whatloom.provider', provider); } catch { setStorageError(true); } } }, [provider, loaded]);
   useEffect(() => { window.scrollTo(0,0); }, [page, activeId]);
   useEffect(() => { const sync=(e:StorageEvent)=>{if(e.key!==STORAGE_KEY||storageBlocked)return;try{const values:unknown=JSON.parse(e.newValue||'[]');if(!Array.isArray(values))return;setProjects(values.map(parseImport));}catch{setNotice('Another tab has data this version cannot read. Export your work before continuing.');}};window.addEventListener('storage',sync);return()=>window.removeEventListener('storage',sync);},[storageBlocked]);
@@ -219,11 +227,15 @@ export default function Studio() {
   async function generate(e?:React.FormEvent, base?:StudioProject, condition?:string) {
     e?.preventDefault();const briefVision=base?.vision??vision;const briefContext=(base?.context??context).slice(0,10000);const briefDomain=base?.domain??domain;const constraints=[...(base?.constraints??[]),...(condition?[condition]:[])].slice(-12);if(briefVision.trim().length<12||busy)return;
     if(HOSTED_STUDIO||provider==='guided'){const guided=guidedProject(briefVision.trim(),briefContext,briefDomain);guided.constraints=constraints;if(condition){guided.notes=`Condition to investigate: ${condition}\n\nThis guided framework does not simulate the consequences of the condition. Develop the paths manually or connect your AI.`;guided.title=`${guided.title} · Reframed`;}if(base)followScenarioProject(base.id,guided.id);saveProject(guided);setNotice(HOSTED_STUDIO?'Your guided exploration is ready. Develop the paths with your own reasoning.':'Your guided exploration is ready. Connect AI for tailored paths.');return;}
+    // This request timer starts in a user event handler, never during rendering.
+    // eslint-disable-next-line react-hooks/purity
     setError('');setBusy('generate');setBusyStart(Date.now());setBusyElapsed(0);const controller=new AbortController();abortRef.current=controller;
     try {const res=await fetch('/api/explore',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider,vision:briefVision.trim(),context:briefContext,domain:briefDomain,constraints}),signal:controller.signal});const data=await res.json() as { exploration: GeneratedExploration; error?: string };if(!res.ok)throw new Error(typeof data.error==='string'?data.error:'The agent could not complete this exploration.');const created={...fromGenerated(data.exploration,briefVision.trim(),briefContext,briefDomain,provider),constraints};if(base)followScenarioProject(base.id,created.id);saveProject(created);setNotice('Your AI exploration is ready. Review its assumptions.');}catch(e){if(e instanceof Error&&e.name==='AbortError')setNotice('Request cancelled. No exploration was saved.');else setError(e instanceof Error?e.message:'Exploration failed. Your prompt is still here.');}finally{setBusy(null);abortRef.current=null;}
   }
   async function research() {
     if(!project||busy)return;if(HOSTED_STUDIO||provider==='guided'){connect();return;}
+    // This request timer starts in a user event handler, never during rendering.
+    // eslint-disable-next-line react-hooks/purity
     const targetId=project.id;setBusy('research');setBusyStart(Date.now());setBusyElapsed(0);setError('');const controller=new AbortController();abortRef.current=controller;
     try { const res=await fetch('/api/research',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider,vision:project.vision,context:project.context.slice(0,10000),domain:project.domain.slice(0,120),assumptions:project.assumptions.slice(0,12).map(a=>({id:a.id,text:a.text.slice(0,600)}))}),signal:controller.signal});const data=await res.json() as { evidence?: Evidence[]; summary?: string; error?: string };if(!res.ok)throw new Error(typeof data.error==='string'?data.error:'Research could not be completed.');const records:Evidence[]=(data.evidence||[]).filter((e:{url:string})=>safeUrl(e.url)).map((e:Evidence)=>({...e,id:uid(),kind:'source',addedAt:new Date().toISOString(),title:e.title||'Research source'}));setProjects(prev=>prev.map(p=>p.id===targetId?{...p,evidence:[...records,...p.evidence],notes: data.summary ? `${p.notes}${p.notes?'\n\n':''}RESEARCH PASS — ${new Date().toLocaleDateString()}\nAI synthesis; review the original sources. Investigated up to the first 12 assumptions.\n${data.summary}` : p.notes,updatedAt:new Date().toISOString()}:p));setNotice(records.length?`${records.length} sources added. Research summary saved in Field notes.`:'No sources added. The research explanation is saved in Field notes.'); }catch(e){if(e instanceof Error&&e.name==='AbortError')setNotice('Research request cancelled.');else setError(e instanceof Error?e.message:'Research failed.');}finally{setBusy(null);abortRef.current=null;}
   }
@@ -257,7 +269,7 @@ export default function Studio() {
       <header className="topbar"><div className="topbar-breadcrumb"><button className="mobile-menu icon-button" aria-label="Open navigation" onClick={()=>setSidebarOpen(true)}><Menu size={20}/></button><span className="breadcrumb-home">Your workspace</span><ChevronRight size={13}/><span>{page==='home'?'Studio':page==='scenarios'?'Guided scenarios':page==='projects'?'My explorations':page==='library'?'Evidence library':project?.title||'Exploration'}</span></div><div className="topbar-right"><span className={`saved-status ${storageError?'storage-warning':''}`}><span/>{storageError?'Storage needs attention':loaded?'Saved on this device':'Opening your studio'}</span><span className="early-access">{HOSTED_STUDIO?'BROWSER STUDIO':'EARLY STUDIO'}</span><button className="avatar" onClick={()=>connect()} aria-label="Workspace settings">W</button></div></header>
       <main>
         {HOSTED_STUDIO&&<aside className="hosted-banner" aria-label="Browser studio and Mac app"><div><span className="eyebrow">A PLACE TO BEGIN</span><p>Explore here. Bring your local AI with the Mac app.</p><small>Your work stays in this browser. Export a backup to continue on your Mac.</small></div><a className="primary-button" href={MAC_DOWNLOAD_URL} target="_blank" rel="noreferrer"><Download size={15}/>Download for Mac<ArrowUpRight size={14}/></a></aside>}
-        {storageError&&<div className="banner warning"><AlertTriangle size={16}/><span>Browser storage needs attention. Existing data is preserved; new changes may not be saved. Export your work to keep it.</span>{recoveryRef.current&&<button onClick={()=>downloadFile('whatloom-recovery.json',recoveryRef.current!,'application/json')}>Download existing data</button>}</div>}
+        {storageError&&<div className="banner warning"><AlertTriangle size={16}/><span>Browser storage needs attention. Existing data is preserved; new changes may not be saved. Export your work to keep it.</span>{recovery&&<button onClick={()=>downloadFile('whatloom-recovery.json',recovery,'application/json')}>Download existing data</button>}</div>}
         {error&&!modal&&<div className="banner error" role="alert"><AlertTriangle size={16}/><span>{error}</span><button onClick={()=>setError('')} aria-label="Dismiss error"><X size={16}/></button></div>}
         {scenarioStorageError&&<div className="banner warning"><AlertTriangle size={16}/><span>Scenario progress could not be restored or saved. You can still practice; export your exploration to keep your work.</span><button onClick={()=>setScenarioStorageError(false)} aria-label="Dismiss scenario progress warning"><X size={16}/></button></div>}
         {(page==='project'||page==='library')&&project&&activeScenario&&scenarioSession&&<div className="scenario-guide-shell">{guideHidden?<button className="secondary-button" onClick={()=>changeScenarioStep(scenarioSession.step)}><Lightbulb size={15}/>Resume scenario guide</button>:<ScenarioGuide scenario={activeScenario} step={scenarioSession.step} completed={scenarioSession.completed} onStep={changeScenarioStep} onAction={runScenarioAction} onComplete={completeScenarioStep} onBrowse={()=>navigate('scenarios')} onCopy={text=>void copy(text)} onHide={()=>setGuideHidden(true)}/>}</div>}

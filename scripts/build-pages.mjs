@@ -24,7 +24,7 @@ try {
   await Promise.all(['app', 'lib'].map((directory) => mkdir(join(stage, directory), { recursive: true })));
   const files = [
     'app/page.tsx', 'app/layout.tsx', 'app/globals.css',
-    'app/legacy-studio.tsx', 'app/founder-studio.tsx', 'app/founder.css', 'app/agent-settings.tsx',
+    'app/legacy-studio.tsx', 'app/founder-studio.tsx', 'app/founder.css', 'app/agent-settings.tsx', 'app/github-settings.tsx',
     'lib/founder.ts', 'lib/founder-migration.ts',
     'app/scenario-experiences.tsx', 'app/scenario-experiences.css',
     'lib/studio.ts', 'lib/studio-types.ts', 'lib/hosting.ts', 'lib/scenarios.ts',

@@ -78,11 +78,17 @@ async function main() {
     assert((await fetch(`${address}/brand/app-icon.svg`)).ok, 'Bundled public assets are missing.');
     const agents = await fetch(`${address}/api/agents`);
     assert(agents.ok && Array.isArray((await agents.json()).agents), 'The bundled agent detection API failed.');
+    const github = await fetch(`${address}/api/github`);
+    assert(github.ok && ['connected', 'disconnected', 'pending', 'unavailable', 'error'].includes((await github.json()).status), 'The bundled GitHub connection API failed.');
+    const invalidBuild = await fetch(`${address}/api/build`, { method: 'POST', headers: { Origin: address, 'Content-Type': 'application/json' }, body: '{}' });
+    assert(invalidBuild.status === 400, 'The bundled founder build API did not validate its input.');
+    const blockedGitHub = await fetch(`${address}/api/github`, { method: 'POST', headers: { Origin: 'https://elsewhere.example', 'Content-Type': 'application/json' }, body: '{"action":"login"}' });
+    assert(blockedGitHub.status === 403, 'The bundled GitHub API did not reject an external origin.');
     const invalid = await fetch(`${address}/api/explore`, { method: 'POST', headers: { Origin: address, 'Content-Type': 'application/json' }, body: '{}' });
     assert(invalid.status === 400, 'The packaged API did not accept its local origin for input validation.');
     const blocked = await fetch(`${address}/api/explore`, { method: 'POST', headers: { Origin: 'https://elsewhere.example', 'Content-Type': 'application/json' }, body: '{}' });
     assert(blocked.status === 403, 'The packaged API did not reject an external origin.');
-    console.log(JSON.stringify({ app, runtimeVersion, architecture: runtimeArchitecture, port, signature: 'valid ad-hoc', productionServer: 'passed', staticAssets: 'passed', publicAssets: 'passed', agentDetection: 'passed', originChecks: 'passed', noticePackages: notices.length, modelCalls: 0 }, null, 2));
+    console.log(JSON.stringify({ app, runtimeVersion, architecture: runtimeArchitecture, port, signature: 'valid ad-hoc', productionServer: 'passed', staticAssets: 'passed', publicAssets: 'passed', agentDetection: 'passed', githubConnection: 'passed', founderBuildValidation: 'passed', originChecks: 'passed', noticePackages: notices.length, modelCalls: 0 }, null, 2));
   } finally { await stop(); }
 }
 
